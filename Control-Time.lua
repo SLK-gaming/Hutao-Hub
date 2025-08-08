@@ -1,4 +1,4 @@
--- Time Reverse Troll Script v4.1 (Smooth Movement + Stop Anytime + Death Fix)
+-- Time Reverse Troll Script v4 (Stop Anytime + Death Fix)
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local TweenService = game:GetService("TweenService")
@@ -41,25 +41,14 @@ task.spawn(function()
     end
 end)
 
--- Tua ngược (mượt hơn)
+-- Tua ngược
 local function reverseTime()
     if reversing then return end
     reversing = true
-
-    -- Nếu dữ liệu quá ít thì bỏ qua
-    if #positionHistory < 2 then
-        reversing = false
-        toggled = false
-        ToggleButton.Text = "Điều khiển thời gian: OFF"
-        return
-    end
-
     for i = #positionHistory, 1, -1 do
         if not toggled then break end -- dừng nếu tắt giữa chừng
         if HRP and HRP.Parent and HRP.Parent:FindFirstChild("Humanoid") and HRP.Parent.Humanoid.Health > 0 then
-            local dist = (HRP.Position - positionHistory[i]).Magnitude
-            local travelTime = math.max(0.05, dist / 25) -- 25 studs/giây, tối thiểu 0.05s để tránh giật
-            local tween = TweenService:Create(HRP, TweenInfo.new(travelTime, Enum.EasingStyle.Linear), {
+            local tween = TweenService:Create(HRP, TweenInfo.new(0.15, Enum.EasingStyle.Linear), {
                 CFrame = CFrame.new(positionHistory[i])
             })
             tween:Play()
@@ -68,7 +57,6 @@ local function reverseTime()
             break
         end
     end
-
     reversing = false
     toggled = false
     ToggleButton.Text = "Điều khiển thời gian: OFF"
