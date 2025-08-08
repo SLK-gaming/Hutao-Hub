@@ -1,30 +1,43 @@
--- Time Reverse Troll Script v4 (Stop Anytime + Death Fix)
+-- Time Reverse Troll Script v4 + Death Fix + Quay Lại Quá Khứ + Infinite Jump Toggle
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
--- Hàm lấy HRP mới khi respawn
-local function GetHRP()
-    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    return Character:WaitForChild("HumanoidRootPart"), Character
-end
-
-local HRP, Character = GetHRP()
-
--- Lịch sử vị trí
+-- Biến lưu
+local HRP, Character
+local lastDeathPosition = nil
 local positionHistory = {}
-local maxHistory = 80 -- ~20s
-local minMoveDist = 1 -- khoảng cách tối thiểu để lưu
-
--- Trạng thái
+local maxHistory = 80
+local minMoveDist = 1
 local toggled = false
 local reversing = false
+local infiniteJumpEnabled = false -- trạng thái nhảy vô hạn
 
--- Lưu vị trí
+-- Hàm setup lại HRP & Character khi respawn
+local function setupCharacter(char)
+    Character = char
+    HRP = char:WaitForChild("HumanoidRootPart")
+    local humanoid = char:WaitForChild("Humanoid")
+
+    humanoid.Died:Connect(function()
+        if HRP and HRP.Parent then
+            lastDeathPosition = HRP.Position
+        else
+            lastDeathPosition = nil
+        end
+        positionHistory = {}
+        toggled = false
+        reversing = false
+        ToggleButton.Text = "Điều khiển thời gian: OFF"
+    end)
+end
+
+-- Lưu vị trí di chuyển
 local function recordPosition()
-    if HRP and HRP.Parent and HRP.Parent:FindFirstChild("Humanoid") and HRP.Parent.Humanoid.Health > 0 then
+    if HRP and HRP.Parent and Character:FindFirstChild("Humanoid") and Character.Humanoid.Health > 0 then
         if #positionHistory == 0 or (HRP.Position - positionHistory[#positionHistory]).Magnitude >= minMoveDist then
             table.insert(positionHistory, HRP.Position)
             if #positionHistory > maxHistory then
@@ -34,20 +47,13 @@ local function recordPosition()
     end
 end
 
--- Ghi liên tục
-task.spawn(function()
-    while task.wait(0.25) do
-        recordPosition()
-    end
-end)
-
--- Tua ngược
+-- Tua ngược thời gian
 local function reverseTime()
     if reversing then return end
     reversing = true
     for i = #positionHistory, 1, -1 do
-        if not toggled then break end -- dừng nếu tắt giữa chừng
-        if HRP and HRP.Parent and HRP.Parent:FindFirstChild("Humanoid") and HRP.Parent.Humanoid.Health > 0 then
+        if not toggled then break end
+        if HRP and HRP.Parent and Character:FindFirstChild("Humanoid") and Character.Humanoid.Health > 0 then
             local tween = TweenService:Create(HRP, TweenInfo.new(0.15, Enum.EasingStyle.Linear), {
                 CFrame = CFrame.new(positionHistory[i])
             })
@@ -62,20 +68,23 @@ local function reverseTime()
     ToggleButton.Text = "Điều khiển thời gian: OFF"
 end
 
--- Khi chết
-local function onDeath()
-    positionHistory = {}
-    toggled = false
-    reversing = false
-    ToggleButton.Text = "Điều khiển thời gian: OFF"
-end
-
-Character:WaitForChild("Humanoid").Died:Connect(function()
-    onDeath()
-    LocalPlayer.CharacterAdded:Wait()
-    HRP, Character = GetHRP()
-    Character:WaitForChild("Humanoid").Died:Connect(onDeath)
+-- Infinite Jump Handler
+UserInputService.JumpRequest:Connect(function()
+    if infiniteJumpEnabled and Character and Character:FindFirstChildOfClass("Humanoid") then
+        Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+    end
 end)
+
+-- Bắt đầu lắng nghe vị trí
+task.spawn(function()
+    while task.wait(0.25) do
+        recordPosition()
+    end
+end)
+
+-- Lấy character ban đầu
+setupCharacter(LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait())
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
 -- GUI
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
@@ -89,7 +98,7 @@ end
 
 -- Frame chính
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 120)
+MainFrame.Size = UDim2.new(0, 200, 0, 210) -- tăng chiều cao
 MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(0,0,0)
 MainFrame.BackgroundTransparency = 0.3
@@ -108,7 +117,7 @@ CloseButton.TextColor3 = Color3.fromRGB(255,255,255)
 Roundify(CloseButton, 5)
 CloseButton.Parent = MainFrame
 
--- Toggle
+-- Toggle Time Reverse
 ToggleButton = Instance.new("TextButton")
 ToggleButton.Size = UDim2.new(1, -20, 0, 40)
 ToggleButton.Position = UDim2.new(0, 10, 0, 40)
@@ -124,6 +133,42 @@ ToggleButton.MouseButton1Click:Connect(function()
     if toggled and not reversing then
         task.spawn(reverseTime)
     end
+end)
+
+-- Nút Quay Lại Quá Khứ
+local ReturnButton = Instance.new("TextButton")
+ReturnButton.Size = UDim2.new(1, -20, 0, 40)
+ReturnButton.Position = UDim2.new(0, 10, 0, 90)
+ReturnButton.BackgroundColor3 = Color3.fromRGB(70,50,50)
+ReturnButton.TextColor3 = Color3.fromRGB(255,255,255)
+ReturnButton.Text = "Quay Lại Quá Khứ"
+Roundify(ReturnButton, 8)
+ReturnButton.Parent = MainFrame
+
+ReturnButton.MouseButton1Click:Connect(function()
+    if lastDeathPosition and HRP and HRP.Parent and Character:FindFirstChild("Humanoid") and Character.Humanoid.Health > 0 then
+        HRP.CFrame = CFrame.new(lastDeathPosition)
+    else
+        ReturnButton.Text = "Không có vị trí chết"
+        task.delay(1.5, function()
+            ReturnButton.Text = "Quay Lại Quá Khứ"
+        end)
+    end
+end)
+
+-- Nút Toggle Infinite Jump
+local JumpButton = Instance.new("TextButton")
+JumpButton.Size = UDim2.new(1, -20, 0, 40)
+JumpButton.Position = UDim2.new(0, 10, 0, 140)
+JumpButton.BackgroundColor3 = Color3.fromRGB(50,70,50)
+JumpButton.TextColor3 = Color3.fromRGB(255,255,255)
+JumpButton.Text = "Nhảy vô hạn: OFF"
+Roundify(JumpButton, 8)
+JumpButton.Parent = MainFrame
+
+JumpButton.MouseButton1Click:Connect(function()
+    infiniteJumpEnabled = not infiniteJumpEnabled
+    JumpButton.Text = "Nhảy vô hạn: " .. (infiniteJumpEnabled and "ON" or "OFF")
 end)
 
 -- Nút ⏱️ thu nhỏ
