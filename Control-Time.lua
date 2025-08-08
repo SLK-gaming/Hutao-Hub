@@ -10,7 +10,7 @@ local LocalPlayer = Players.LocalPlayer
 local HRP, Character
 local lastDeathPosition = nil
 local positionHistory = {}
-local maxHistory = 80
+local maxHistory = 200
 local minMoveDist = 1
 local toggled = false
 local reversing = false
